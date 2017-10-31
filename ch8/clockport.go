@@ -13,7 +13,9 @@ import (
 func main() {
 
 	var port int
+	var timezone string
 	flag.IntVar(&port, "port", -1, "The port number to run the clock from")
+	flag.StringVar(&timezone, "timezone", "Europe/London", "The time zone of the clock")
 
 	flag.Parse()
 
@@ -24,11 +26,19 @@ func main() {
 
 	address := fmt.Sprintf("localhost:%d", port)
 
-	log.Printf("Running server at %s", address)
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatal(err)
+		os.Exit(1)
 	}
+
+	log.Printf("Running clock server at %s with time zone '%s'", address, timezone)
 
 	for {
 		conn, err := listener.Accept()
@@ -36,14 +46,14 @@ func main() {
 			log.Print(err)
 			continue
 		}
-		go handleConn(conn)
+		go handleConn(conn, location)
 	}
 }
 
-func handleConn(c net.Conn) {
+func handleConn(c net.Conn, location *time.Location) {
 	defer c.Close()
 	for {
-		_, err := io.WriteString(c, time.Now().Format("15:04:05\n"))
+		_, err := io.WriteString(c, time.Now().In(location).Format("15:04:05\n"))
 		if err != nil {
 			return
 		}

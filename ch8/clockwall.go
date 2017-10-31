@@ -2,15 +2,19 @@ package main
 
 import (
 	"os"
-	"fmt"
 	"net"
 	"strings"
 	"log"
+	"fmt"
+	"time"
+	"io"
 )
 
 func main() {
 
 	arguments := os.Args
+
+	zoneConnection := make(map[string]net.Conn)
 
 	for _, zoneAddress := range arguments {
 
@@ -35,7 +39,24 @@ func main() {
 		}
 		defer conn.Close()
 
-
+		conn.SetReadDeadline(time.Time{})
+		zoneConnection[zone] = conn
 	}
 
+	for {
+		for zone, conn := range zoneConnection {
+			readFromClockServer(zone, conn)
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Printf("\r")
+	}
+}
+
+func readFromClockServer(zone string, conn net.Conn) {
+	buffer := make([]byte, 9)
+	if _, err := io.ReadAtLeast(conn, buffer, 9); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s:\t%s \t", zone, strings.Trim(string(buffer), "\n"))
 }
